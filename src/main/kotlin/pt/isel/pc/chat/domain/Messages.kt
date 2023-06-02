@@ -1,4 +1,4 @@
-package pt.isel.pc.set3.domain
+package pt.isel.pc.chat.domain
 
 /**
  * Messages returned to the client or written into the standard output.

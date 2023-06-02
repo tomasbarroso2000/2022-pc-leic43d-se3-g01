@@ -50,7 +50,7 @@ suspend fun AsynchronousServerSocketChannel.suspendingAccept(): AsynchronousSock
         })
     }
 
-suspend fun AsynchronousSocketChannel.suspendingWriteLine(line: String, timeout: Long, unit: TimeUnit): Int =
+suspend fun AsynchronousSocketChannel.suspendingWriteLine(line: String, timeout: Long = Long.MAX_VALUE, unit: TimeUnit = TimeUnit.MINUTES): Int =
     suspendCancellableCoroutine { continuation ->
         continuation.invokeOnCancellation {
             logger.info("Suspending write cancelled")
@@ -89,7 +89,7 @@ private fun AsynchronousSocketChannel.writeChunk(
 
 suspend fun AsynchronousSocketChannel.suspendingReadLine(
     timeout: Long = Long.MAX_VALUE,
-    unit: TimeUnit = TimeUnit.MILLISECONDS
+    unit: TimeUnit = TimeUnit.MINUTES
 ): String? {
     return suspendCancellableCoroutine { continuation ->
         val buffer = ByteBuffer.allocate(1024)

@@ -1,5 +1,6 @@
 package pt.isel.pc.set3.domain
 
+import pt.isel.pc.chat.domain.ConnectedClient
 import java.util.HashSet
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock

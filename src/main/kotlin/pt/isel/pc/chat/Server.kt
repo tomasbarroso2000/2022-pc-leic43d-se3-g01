@@ -2,21 +2,18 @@ package pt.isel.pc.set3
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
-import pt.isel.pc.set3.domain.ConnectedClient
-import pt.isel.pc.set3.domain.ConnectedClientContainer
-import pt.isel.pc.set3.domain.Messages
-import pt.isel.pc.set3.domain.RoomContainer
+import pt.isel.pc.chat.domain.ConnectedClient
+import pt.isel.pc.chat.domain.ConnectedClientContainer
+import pt.isel.pc.chat.domain.Messages
+import pt.isel.pc.chat.domain.RoomContainer
 import pt.isel.pc.set3.utils.createServerChannel
 import pt.isel.pc.set3.utils.suspendingAccept
 import java.net.InetSocketAddress
-import java.net.ServerSocket
 import java.net.SocketException
 import java.nio.channels.AsynchronousServerSocketChannel
 import java.nio.channels.AsynchronousSocketChannel
-import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -68,23 +65,23 @@ class Server(
         var clientId = 0
         val roomContainer = RoomContainer()
         val clientContainer = ConnectedClientContainer()
-        while (true) {
-            try {
-                // TODO: throttling
-                logger.info("accepting new client")
+            while (true) {
+                try {
+                    // TODO: throttling
+                    logger.info("accepting new client")
 
-                val socket: AsynchronousSocketChannel = serverSocket.suspendingAccept()
-                logger.info("client socket accepted, remote address is {}", socket.remoteAddress)
-                println(Messages.SERVER_ACCEPTED_CLIENT)
+                    val socket: AsynchronousSocketChannel = serverSocket.suspendingAccept()
+                    logger.info("client socket accepted, remote address is {}", socket.remoteAddress)
+                    println(Messages.SERVER_ACCEPTED_CLIENT)
 
-                val client = ConnectedClient(socket, ++clientId, roomContainer, clientContainer)
-                clientContainer.add(client)
-            } catch (ex: SocketException) {
-                logger.info("SocketException, ending")
-                // We assume that an exception means the server was asked to terminate
-                break
+                    val client = ConnectedClient(socket, ++clientId, roomContainer, scope , clientContainer)
+                    clientContainer.add(client)
+                } catch (ex: SocketException) {
+                    logger.info("SocketException, ending")
+                    // We assume that an exception means the server was asked to terminate
+                    break
+                }
             }
-        }
         clientContainer.shutdown()
     }
 

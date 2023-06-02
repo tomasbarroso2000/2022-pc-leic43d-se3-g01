@@ -1,4 +1,4 @@
-package pt.isel.pc.set3.domain
+package pt.isel.pc.chat.domain
 
 /**
  * Sealed interface to represent all possible request lines sent by the client.
