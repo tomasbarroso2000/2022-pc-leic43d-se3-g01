@@ -1,4 +1,4 @@
-package pt.isel.pc.chat.utils
+package pt.isel.pc.set3.utils
 
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
@@ -37,7 +37,6 @@ suspend fun AsynchronousServerSocketChannel.suspendingAccept(): AsynchronousSock
             close()
             continuation.resumeWithException(CancellationException("Suspending accept cancelled"))
         }
-
         accept(null, object : CompletionHandler<AsynchronousSocketChannel, Any?> {
             override fun completed(socket: AsynchronousSocketChannel, attachment: Any?) {
                 logger.info("Accepted client connection")
@@ -51,7 +50,7 @@ suspend fun AsynchronousServerSocketChannel.suspendingAccept(): AsynchronousSock
         })
     }
 
-suspend fun AsynchronousSocketChannel.suspendingWriteLine(line: String): Int =
+suspend fun AsynchronousSocketChannel.suspendingWriteLine(line: String, timeout: Long, unit: TimeUnit): Int =
     suspendCancellableCoroutine { continuation ->
         continuation.invokeOnCancellation {
             logger.info("Suspending write cancelled")
@@ -60,18 +59,24 @@ suspend fun AsynchronousSocketChannel.suspendingWriteLine(line: String): Int =
         }
 
         val toSend = CharBuffer.wrap(line + "\n")
-        writeChunk(toSend, continuation)
+        writeChunk(toSend, 0, timeout, unit, continuation)
     }
 
 //deal with the case when not all the string's chars are written in one call
-private fun AsynchronousSocketChannel.writeChunk(toSend: CharBuffer, continuation: CancellableContinuation<Int>) {
-    write(encoder.encode(toSend), null, object : CompletionHandler<Int, Any?> {
+private fun AsynchronousSocketChannel.writeChunk(
+    toSend: CharBuffer,
+    total: Int,
+    timeout: Long,
+    unit: TimeUnit,
+    continuation: CancellableContinuation<Int>
+) {
+    write(encoder.encode(toSend), timeout, unit, null, object : CompletionHandler<Int, Any?> {
         override fun completed(result: Int, attachment: Any?) {
             if (toSend.hasRemaining()) {
-                writeChunk(toSend, continuation)
+                writeChunk(toSend, total + result, timeout, unit, continuation)
             } else {
                 logger.info("Write succeeded.")
-                continuation.resume(result)
+                continuation.resume(total + result)
             }
         }
 
@@ -83,7 +88,7 @@ private fun AsynchronousSocketChannel.writeChunk(toSend: CharBuffer, continuatio
 }
 
 suspend fun AsynchronousSocketChannel.suspendingReadLine(
-    timeout: Long = 0,
+    timeout: Long = Long.MAX_VALUE,
     unit: TimeUnit = TimeUnit.MILLISECONDS
 ): String? {
     return suspendCancellableCoroutine { continuation ->
