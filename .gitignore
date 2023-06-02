@@ -8,3 +8,14 @@
 *.bat
 src/gradlew
 *.jar
+*.class
+*.kotlin_module
+*.keystream
+*.len
+*.tab
+*.at
+*.tab_i
+*.html
+*.css
+*.js
+*.idx
