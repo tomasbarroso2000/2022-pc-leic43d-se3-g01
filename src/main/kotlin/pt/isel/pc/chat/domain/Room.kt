@@ -1,5 +1,7 @@
 package pt.isel.pc.set3.domain
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import pt.isel.pc.chat.domain.ConnectedClient
 import java.util.HashSet
 import java.util.concurrent.locks.ReentrantLock
@@ -13,18 +15,18 @@ class Room(
     private val name: String,
 ) {
 
-    private val lock = ReentrantLock()
+    private val lock = Mutex()
     private val connectedClients = HashSet<ConnectedClient>()
 
-    fun add(connectedClient: ConnectedClient) = lock.withLock {
+    suspend fun add(connectedClient: ConnectedClient) = lock.withLock {
         connectedClients.add(connectedClient)
     }
 
-    fun remove(connectedClient: ConnectedClient) = lock.withLock {
+    suspend fun remove(connectedClient: ConnectedClient) = lock.withLock {
         connectedClients.remove(connectedClient)
     }
 
-    fun post(sender: ConnectedClient, message: String) = lock.withLock {
+    suspend fun post(sender: ConnectedClient, message: String) = lock.withLock {
         connectedClients.forEach {
             if (it != sender) {
                 it.send(sender, message)

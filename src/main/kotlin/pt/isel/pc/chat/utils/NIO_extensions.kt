@@ -14,6 +14,8 @@ import java.nio.channels.InterruptedByTimeoutException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.nio.channels.AsynchronousCloseException
+import java.nio.channels.ClosedChannelException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
