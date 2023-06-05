@@ -5,11 +5,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
-import pt.isel.pc.set3.Server
 import pt.isel.pc.set3.domain.Room
 import pt.isel.pc.set3.utils.suspendingReadLine
 import pt.isel.pc.set3.utils.suspendingWriteLine
-import java.nio.channels.AsynchronousCloseException
 import java.nio.channels.AsynchronousSocketChannel
 import java.util.concurrent.CancellationException
 import java.util.concurrent.LinkedBlockingQueue
@@ -114,7 +112,6 @@ class ConnectedClient(
         clientRequest: ClientRequest,
         socket: AsynchronousSocketChannel
     ): Boolean {
-        try {
             when (clientRequest) {
                 is ClientRequest.EnterRoomCommand -> {
                     logger.info("[{}] received remote client request: {}", name, clientRequest)
@@ -122,7 +119,6 @@ class ConnectedClient(
                     room = roomContainer.getByName(clientRequest.name).also {
                         it.add(this)
                     }
-                    //writer.writeLine(Messages.enteredRoom(clientRequest.name))
                     socket.suspendingWriteLine(Messages.enteredRoom(clientRequest.name))
                 }
 
@@ -135,14 +131,12 @@ class ConnectedClient(
                 ClientRequest.ExitCommand -> {
                     logger.info("[{}] received remote client request: {}", name, clientRequest)
                     room?.remove(this)
-                    //writer.writeLine(Messages.BYE)
                     socket.suspendingWriteLine(Messages.BYE)
                     return true
                 }
 
                 is ClientRequest.InvalidRequest -> {
                     logger.info("[{}] received remote client request: {}", name, clientRequest)
-                    //writer.writeLine(Messages.ERR_INVALID_LINE)
                     socket.suspendingWriteLine(Messages.ERR_INVALID_LINE)
                 }
 
@@ -152,15 +146,11 @@ class ConnectedClient(
                     if (currentRoom != null) {
                         currentRoom.post(this, clientRequest.value)
                     } else {
-                        //writer.writeLine(Messages.ERR_NOT_IN_A_ROOM)
                         socket.suspendingWriteLine(Messages.ERR_NOT_IN_A_ROOM)
                     }
                 }
             }
-        } catch (e: AsynchronousCloseException) {
-            logger.info("qfpqfpqfgpqgpqgpql")
-        }
-        return false
+                return false
     }
 
     private fun readLoop() =
@@ -175,14 +165,9 @@ class ConnectedClient(
                     }
                     controlQueue.put(ControlMessage.RemoteClientRequest(ClientRequest.parse(line)))
                 }
-            } catch (ex: AsynchronousCloseException) {
-                println("dqokodqkfo")
             } catch (ex: CancellationException) {
                 logger.info("Server shutting down")
                 logger.info(ex.message)
-            } catch (ex: Throwable) {
-                logger.info("[{}]Exception on read loop: {}, {}", name, ex.javaClass.name, ex.message)
-                controlQueue.put(ControlMessage.RemoteInputClosed)
             }
             logger.info("[{}] client loop ending", name)
         }

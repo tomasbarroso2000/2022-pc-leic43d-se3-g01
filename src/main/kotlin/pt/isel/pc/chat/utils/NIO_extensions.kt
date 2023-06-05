@@ -32,25 +32,24 @@ fun createServerChannel(address: InetSocketAddress, executor: ExecutorService): 
     return serverSocket
 }
 
-suspend fun AsynchronousServerSocketChannel.suspendingAccept(): AsynchronousSocketChannel =
-    suspendCancellableCoroutine { continuation ->
+suspend fun AsynchronousServerSocketChannel.suspendingAccept(): AsynchronousSocketChannel {
+    return suspendCancellableCoroutine { continuation ->
         continuation.invokeOnCancellation {
             logger.info("Suspending accept cancelled")
             close()
-            continuation.resumeWithException(CancellationException("Suspending accept cancelled"))
+            //continuation.resumeWithException(CancellationException("Suspending accept cancelled"))
         }
         accept(null, object : CompletionHandler<AsynchronousSocketChannel, Any?> {
-            override fun completed(socket: AsynchronousSocketChannel, attachment: Any?) {
-                logger.info("Accepted client connection")
-                continuation.resume(socket)
+            override fun completed(socketChannel: AsynchronousSocketChannel, attachment: Any?) {
+                continuation.resume(socketChannel)
             }
 
             override fun failed(error: Throwable, attachment: Any?) {
-                logger.error("Failed to accept client connection", error)
                 continuation.resumeWithException(error)
             }
         })
     }
+}
 
 suspend fun AsynchronousSocketChannel.suspendingWriteLine(line: String, timeout: Long = Long.MAX_VALUE, unit: TimeUnit = TimeUnit.MINUTES): Int =
     suspendCancellableCoroutine { continuation ->
