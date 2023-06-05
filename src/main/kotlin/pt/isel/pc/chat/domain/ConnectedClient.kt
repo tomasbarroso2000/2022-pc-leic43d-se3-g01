@@ -161,7 +161,7 @@ class ConnectedClient(
         scope.launch {
             try {
                 while (true) {
-                    val line = socket.suspendingReadLine(5, TimeUnit.MINUTES)
+                    val line = socket.suspendingReadLine()
                     if (line == null) {
                         logger.info("[{}] end of input stream reached", name)
                         controlQueue.enqueue(ControlMessage.RemoteInputClosed)
