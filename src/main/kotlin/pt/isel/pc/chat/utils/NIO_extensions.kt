@@ -13,6 +13,7 @@ import java.nio.channels.InterruptedByTimeoutException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.util.concurrent.CancellationException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -27,13 +28,8 @@ fun createServerChannel(address: InetSocketAddress, executor: ExecutorService): 
     serverSocket.bind(address)
     return serverSocket
 }
-
 suspend fun AsynchronousServerSocketChannel.suspendingAccept(): AsynchronousSocketChannel {
     return suspendCancellableCoroutine { continuation ->
-        continuation.invokeOnCancellation {
-            logger.info("Suspending accept cancelled")
-            close()
-        }
         accept(null, object : CompletionHandler<AsynchronousSocketChannel, Any?> {
             override fun completed(socketChannel: AsynchronousSocketChannel, attachment: Any?) {
                 continuation.resume(socketChannel)
@@ -46,90 +42,55 @@ suspend fun AsynchronousServerSocketChannel.suspendingAccept(): AsynchronousSock
     }
 }
 
-suspend fun AsynchronousSocketChannel.suspendingWriteLine(line: String): Int =
-    suspendCancellableCoroutine { continuation ->
-        continuation.invokeOnCancellation {
-            logger.info("Suspending write cancelled")
-            close()
-        }
+/**
+ * Writes the given text to this socket channel.
+ * @param text  The text to be written
+ * @return the number of written bytes.
+ */
+suspend fun AsynchronousSocketChannel.suspendingWriteLine(text: String): Int {
+    return suspendCancellableCoroutine { continuation ->
+        val toSend = CharBuffer.wrap(text + "\r\n")
 
-        val toSend = CharBuffer.wrap(line + "\n")
-        writeChunk(toSend, 0, continuation)
-    }
-
-//deal with the case when not all the string's chars are written in one call
-private fun AsynchronousSocketChannel.writeChunk(
-    toSend: CharBuffer,
-    total: Int,
-    continuation: CancellableContinuation<Int>
-) {
-    write(encoder.encode(toSend), null, object : CompletionHandler<Int, Any?> {
-        override fun completed(result: Int, attachment: Any?) {
-            if (toSend.hasRemaining()) {
-                writeChunk(toSend, total + result, continuation)
-            } else {
-                logger.info("Write succeeded.")
-                continuation.resume(total + result)
+        write(encoder.encode(toSend), null, object : CompletionHandler<Int, Any?> {
+            override fun completed(result: Int, attachment: Any?) {
+                if (continuation.isCancelled)
+                    continuation.resumeWithException(CancellationException())
+                else
+                    continuation.resume(result)
             }
-        }
 
-        override fun failed(error: Throwable, attachment: Any?) {
-            logger.error("Write failed.")
-            continuation.resumeWithException(error)
-        }
-    })
+            override fun failed(error: Throwable, attachment: Any?) {
+                continuation.resumeWithException(error)
+            }
+        })
+    }
 }
 
-suspend fun AsynchronousSocketChannel.suspendingReadLine(): String? {
+/**
+ * Reads a line from this socket channel.
+ * @param timeout   The maximum time for the I/O operation to complete
+ * @param unit      The time unit of the {@code timeout} argument
+ * @return the read line, or null if the operation timed out
+ */
+suspend fun AsynchronousSocketChannel.suspendingReadLine(timeout: Long = 0, unit: TimeUnit = TimeUnit.MILLISECONDS): String? {
     return suspendCancellableCoroutine { continuation ->
         val buffer = ByteBuffer.allocate(1024)
-        val lineBuffer = StringBuilder()
 
-        continuation.invokeOnCancellation {
-            logger.info("Suspending read cancelled")
-            close()
-        }
-
-        readChunk(buffer, lineBuffer, continuation)
-    }
-}
-
-private fun AsynchronousSocketChannel.readChunk(
-    buffer: ByteBuffer,
-    lineBuffer: StringBuilder,
-    continuation: CancellableContinuation<String?>
-) {
-    read(buffer, null, object : CompletionHandler<Int, Any?> {
-        override fun completed(result: Int, attachment: Any?) {
-            if (result == -1) {
-                logger.info("End of stream reached.")
-                continuation.resume(null)
-            } else {
-                buffer.flip() // Flip the buffer to prepare for reading
-                val received = decoder.decode(buffer).toString()
-                lineBuffer.append(received)
-
-                val line = lineBuffer.toString().substringBeforeLast('\n').substringBeforeLast('\r').trim()
-                val remaining = lineBuffer.toString().substringAfterLast('\n').substringAfterLast('\r')
-
-                if (remaining.isEmpty()) {
-                    // The line is complete
-                    lineBuffer.clear()
-                    logger.info("Read succeeded.")
-                    continuation.resume(line)
-                } else {
-                    buffer.clear()
-                    lineBuffer.setLength(0)
-                    lineBuffer.append(remaining)
-                    logger.info("Read succeeded, but more to read.")
-                    readChunk(buffer, lineBuffer, continuation)
+        read(buffer, timeout, unit, null, object : CompletionHandler<Int, Any?> {
+            override fun completed(result: Int, attachment: Any?) {
+                if (continuation.isCancelled)
+                    continuation.resumeWithException(CancellationException())
+                else {
+                    val received = decoder.decode(buffer.flip()).toString().trim()
+                    continuation.resume(received)
                 }
             }
-        }
 
-        override fun failed(error: Throwable, attachment: Any?) {
-            logger.error("Read failed.")
-            continuation.resumeWithException(error)
-        }
-    })
+            override fun failed(error: Throwable, attachment: Any?) {
+                if (error is InterruptedByTimeoutException)
+                    continuation.resume(null)
+                else continuation.resumeWithException(error)
+            }
+        })
+    }
 }

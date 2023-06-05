@@ -9,6 +9,7 @@ import pt.isel.pc.chat.utils.MessageQueue
 import pt.isel.pc.set3.domain.Room
 import pt.isel.pc.chat.utils.suspendingReadLine
 import pt.isel.pc.chat.utils.suspendingWriteLine
+import java.io.IOException
 import java.nio.channels.AsynchronousSocketChannel
 import java.util.concurrent.CancellationException
 import java.util.concurrent.LinkedBlockingQueue
@@ -104,9 +105,9 @@ class ConnectedClient(
                     logger.info("apanhar accept exception")
                 }
             }
-            readLoop.join()
+            //readLoop.join()
             clientContainer.remove(this@ConnectedClient)
-            //readLoop.cancelAndJoin()
+            readLoop.cancelAndJoin()
             logger.info("[{}] main loop ending", name)
         }
     }
@@ -160,7 +161,7 @@ class ConnectedClient(
         scope.launch {
             try {
                 while (true) {
-                    val line = socket.suspendingReadLine()
+                    val line = socket.suspendingReadLine(5, TimeUnit.MINUTES)
                     if (line == null) {
                         logger.info("[{}] end of input stream reached", name)
                         controlQueue.enqueue(ControlMessage.RemoteInputClosed)
@@ -168,7 +169,7 @@ class ConnectedClient(
                     }
                     controlQueue.enqueue(ControlMessage.RemoteClientRequest(ClientRequest.parse(line)))
                 }
-            } catch (ex: CancellationException) {
+            } catch (ex: IOException) {
                 logger.info("Server shutting down")
                 logger.info(ex.message)
             }

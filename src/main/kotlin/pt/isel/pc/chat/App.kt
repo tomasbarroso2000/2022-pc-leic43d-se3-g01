@@ -1,8 +1,7 @@
-package pt.isel.pc.set3
+package pt.isel.pc.chat
 
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
-import pt.isel.pc.chat.Server
 
 
 private val logger = LoggerFactory.getLogger("main")
