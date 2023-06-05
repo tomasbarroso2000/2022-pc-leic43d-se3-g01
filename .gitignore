@@ -19,3 +19,6 @@ src/gradlew
 *.css
 *.js
 *.idx
+
+# Ignore Gradle build output directory
+build

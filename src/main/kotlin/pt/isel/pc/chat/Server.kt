@@ -8,9 +8,8 @@ import pt.isel.pc.chat.domain.ConnectedClient
 import pt.isel.pc.chat.domain.ConnectedClientContainer
 import pt.isel.pc.chat.domain.Messages
 import pt.isel.pc.chat.domain.RoomContainer
-import pt.isel.pc.set3.utils.createServerChannel
-import pt.isel.pc.set3.utils.suspendingAccept
-import java.lang.Thread.sleep
+import pt.isel.pc.chat.utils.createServerChannel
+import pt.isel.pc.chat.utils.suspendingAccept
 import java.net.InetSocketAddress
 import java.nio.channels.AsynchronousServerSocketChannel
 import java.nio.channels.AsynchronousSocketChannel
@@ -30,7 +29,7 @@ class Server(
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 ) : AutoCloseable {
 
-    enum class State{ NOT_STARTED, STARTED, STOPPING, STOPPED }
+    private enum class State { NOT_STARTED, STARTED, STOPPING, STOPPED }
 
     private var state = State.NOT_STARTED
 
@@ -117,23 +116,21 @@ class Server(
 
     private suspend fun acceptLoop(serverSocket: AsynchronousServerSocketChannel) {
         var clientId = 0
-        try {
-            while (isStarted()) {
-                    // TODO: throttling
-                    logger.info("accepting new client")
+        while (isStarted()) {
+            try {
+                // TODO: throttling
+                logger.info("accepting new client")
 
-                    val socket: AsynchronousSocketChannel = serverSocket.suspendingAccept()
-                    logger.info("client socket accepted, remote address is {}", socket.remoteAddress)
-                    println(Messages.SERVER_ACCEPTED_CLIENT)
+                val socket: AsynchronousSocketChannel = serverSocket.suspendingAccept()
+                logger.info("client socket accepted, remote address is {}", socket.remoteAddress)
+                println(Messages.SERVER_ACCEPTED_CLIENT)
 
-                    val client = ConnectedClient(socket, ++clientId, roomContainer, scope , clientContainer)
-                    clientContainer.add(client)
-                }
+                val client = ConnectedClient(socket, ++clientId, roomContainer, scope , clientContainer)
+                clientContainer.add(client)
+            } catch (ex: ClosedChannelException) {
+                logger.info("Server is shutting down")
+            }
         }
-        catch (ex: ClosedChannelException) {
-            logger.info("Server is shutting down")
-        }
-
     }
     companion object {
         private val logger = LoggerFactory.getLogger(Server::class.java)

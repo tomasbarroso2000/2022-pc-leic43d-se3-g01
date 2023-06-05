@@ -5,14 +5,17 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
+import pt.isel.pc.chat.utils.MessageQueue
 import pt.isel.pc.set3.domain.Room
-import pt.isel.pc.set3.utils.suspendingReadLine
-import pt.isel.pc.set3.utils.suspendingWriteLine
+import pt.isel.pc.chat.utils.suspendingReadLine
+import pt.isel.pc.chat.utils.suspendingWriteLine
 import java.nio.channels.AsynchronousSocketChannel
 import java.util.concurrent.CancellationException
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration
 
+private const val NR_MAX_MESSAGES = 50
 
 /**
  * Responsible for handling a single connected client. It is comprised by two threads:
@@ -29,7 +32,7 @@ class ConnectedClient(
     private val clientContainer: ConnectedClientContainer,
 ) {
 
-    val name = "client-$id"
+    private val name = "client-$id"
 
     // The control messages the main loop handles...
     private sealed interface ControlMessage {
@@ -49,20 +52,20 @@ class ConnectedClient(
     private var mainLoop: Job = mainLoop()
     private var readLoop: Job = readLoop()
 
-    fun send(sender: ConnectedClient, message: String) {
+    suspend fun send(sender: ConnectedClient, message: String) {
         // just add a control message into the control queue
-        controlQueue.put(ControlMessage.RoomMessage(sender, message))
+        controlQueue.enqueue(ControlMessage.RoomMessage(sender, message))
     }
 
-    fun shutdown() {
+    suspend fun shutdown() {
         // just add a control message into the control queue
-        controlQueue.put(ControlMessage.Shutdown)
+        controlQueue.enqueue(ControlMessage.Shutdown)
     }
 
     suspend fun join() = mainLoop.join()
 
 
-    private val controlQueue = LinkedBlockingQueue<ControlMessage>()
+    private val controlQueue = MessageQueue<ControlMessage>(NR_MAX_MESSAGES)
 
     private var room: Room? = null
 
@@ -71,9 +74,9 @@ class ConnectedClient(
             logger.info("[{}] main loop started", name)
             socket.use {
                 it.suspendingWriteLine(Messages.CLIENT_WELCOME + name)
-                while (true) {
-                    try {
-                        when (val control = controlQueue.poll(Long.MAX_VALUE, TimeUnit.SECONDS)) {
+                try {
+                    while (true) {
+                        when (val control = controlQueue.dequeue(Duration.INFINITE)) {
                             is ControlMessage.Shutdown -> {
                                 logger.info("[{}] received control message: {}", name, control)
                                 it.suspendingWriteLine(Messages.SERVER_IS_ENDING)
@@ -96,14 +99,14 @@ class ConnectedClient(
                             }
                         }
                     }
-                    catch(ex: Exception) {
-                        logger.info("apanhar accept exception")
-                        break
-                    }
+
+                } catch(ex: Exception) {
+                    logger.info("apanhar accept exception")
                 }
             }
+            readLoop.join()
             clientContainer.remove(this@ConnectedClient)
-            readLoop.cancelAndJoin()
+            //readLoop.cancelAndJoin()
             logger.info("[{}] main loop ending", name)
         }
     }
@@ -157,13 +160,13 @@ class ConnectedClient(
         scope.launch {
             try {
                 while (true) {
-                    val line = socket.suspendingReadLine(5, TimeUnit.MINUTES)
+                    val line = socket.suspendingReadLine()
                     if (line == null) {
                         logger.info("[{}] end of input stream reached", name)
-                        controlQueue.put(ControlMessage.RemoteInputClosed)
+                        controlQueue.enqueue(ControlMessage.RemoteInputClosed)
                         break
                     }
-                    controlQueue.put(ControlMessage.RemoteClientRequest(ClientRequest.parse(line)))
+                    controlQueue.enqueue(ControlMessage.RemoteClientRequest(ClientRequest.parse(line)))
                 }
             } catch (ex: CancellationException) {
                 logger.info("Server shutting down")
