@@ -1,4 +1,4 @@
-package pt.isel.pc.chat.TestUtils
+package pt.isel.pc.chat.utils
 
 import pt.isel.pc.chat.domain.Messages
 import java.io.BufferedReader
@@ -7,8 +7,8 @@ import java.net.InetSocketAddress
 import java.net.Socket
 import kotlin.test.assertEquals
 
-class TestClient(val name: String) {
 
+class TestClient {
     private val socket = Socket()
     private var writer: BufferedWriter? = null
     private var reader: BufferedReader? = null

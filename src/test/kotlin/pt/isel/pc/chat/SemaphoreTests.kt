@@ -10,9 +10,9 @@ import pt.isel.pc.chat.utils.Semaphore
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.fail
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+
 
 class SemaphoreTests {
 
@@ -47,7 +47,7 @@ class SemaphoreTests {
         val sem = Semaphore(1)
         val count = AtomicInteger()
 
-        runBlocking  {
+        runBlocking {
             repeat(2) {
                 launch {
                     logger.info("before acquire 1")
@@ -87,11 +87,9 @@ class SemaphoreTests {
                     sem.acquire(2.seconds)
                 }
                 logger.info("after acquire 2")
-
             }
             acquirer1.join()
             acquirer2.join()
         }
-
     }
 }

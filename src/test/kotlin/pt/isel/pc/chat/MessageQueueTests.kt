@@ -10,6 +10,7 @@ import kotlin.time.Duration.Companion.seconds
 
 
 class MessageQueueTests {
+
     companion object {
         private val logger = LoggerFactory.getLogger(MessageQueueTests::class.java)
     }

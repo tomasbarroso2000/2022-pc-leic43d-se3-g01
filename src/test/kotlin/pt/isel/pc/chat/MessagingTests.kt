@@ -2,14 +2,15 @@ package pt.isel.pc.chat
 
 import org.junit.Test
 import pt.isel.pc.chat.domain.Messages
-import pt.isel.pc.chat.TestUtils.TestClient
-import pt.isel.pc.chat.TestUtils.TestHelper
+import pt.isel.pc.chat.utils.TestClient
+import pt.isel.pc.chat.utils.TestHelper
 import java.net.SocketTimeoutException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.time.Duration.Companion.seconds
+
 
 class MessagingTests {
 
@@ -18,7 +19,7 @@ class MessagingTests {
         // given: a set of clients
         val nOfClients = 5
         val clients = List(nOfClients) {
-            TestClient("client-$it")
+            TestClient()
         }
         Server("0.0.0.0", 8080).use { server ->
             // and: a server listening
@@ -71,7 +72,7 @@ class MessagingTests {
 
         // and: a set of clients
         val clients = List(nOfClients) {
-            TestClient("client-$it")
+            TestClient()
         }
         val testHelper = TestHelper(120.seconds)
         val counter = ConcurrentHashMap<String, AtomicLong>()

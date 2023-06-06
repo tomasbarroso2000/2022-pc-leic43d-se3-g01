@@ -1,9 +1,10 @@
-package pt.isel.pc.chat.TestUtils
+package pt.isel.pc.chat.utils
 
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import kotlin.concurrent.thread
+
 
 class TestServer private constructor(
     private val process: Process,
