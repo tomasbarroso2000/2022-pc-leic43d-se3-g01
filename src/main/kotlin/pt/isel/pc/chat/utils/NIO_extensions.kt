@@ -1,6 +1,7 @@
 package pt.isel.pc.chat.utils
 
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.slf4j.LoggerFactory
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
@@ -9,11 +10,8 @@ import java.nio.channels.AsynchronousChannelGroup
 import java.nio.channels.AsynchronousServerSocketChannel
 import java.nio.channels.AsynchronousSocketChannel
 import java.nio.channels.CompletionHandler
-import java.nio.channels.InterruptedByTimeoutException
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.CancellationException
+import java.util.concurrent.ExecutorService
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -28,6 +26,7 @@ fun createServerChannel(address: InetSocketAddress, executor: ExecutorService): 
     serverSocket.bind(address)
     return serverSocket
 }
+
 suspend fun AsynchronousServerSocketChannel.suspendingAccept(): AsynchronousSocketChannel {
     return suspendCancellableCoroutine { continuation ->
         accept(null, object : CompletionHandler<AsynchronousSocketChannel, Any?> {
@@ -64,11 +63,10 @@ private fun AsynchronousSocketChannel.writeChunk(
         override fun completed(result: Int, attachment: Any?) {
             if (continuation.isCancelled)
                 continuation.resumeWithException(CancellationException())
-            else if (toSend.hasRemaining()) {
+            else if (toSend.hasRemaining())
                 writeChunk(toSend, total + result, continuation)
-            } else {
+            else
                 continuation.resume(total + result)
-            }
         }
 
         override fun failed(error: Throwable, attachment: Any?) {
@@ -78,18 +76,10 @@ private fun AsynchronousSocketChannel.writeChunk(
     })
 }
 
-/**
- * Reads a line from this socket channel.
- * @param timeout   The maximum time for the I/O operation to complete
- * @param unit      The time unit of the {@code timeout} argument
- * @return the read line, or null if the operation timed out
- */
-
 suspend fun AsynchronousSocketChannel.suspendingReadLine(): String? {
     return suspendCancellableCoroutine { continuation ->
         val buffer = ByteBuffer.allocate(1024)
         val lineBuffer = StringBuilder()
-
         readChunk(buffer, lineBuffer, continuation)
     }
 }

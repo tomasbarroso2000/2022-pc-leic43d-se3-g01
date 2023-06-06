@@ -81,6 +81,7 @@ class SemaphoreTests {
                 sem.acquire(Duration.INFINITE)
                 logger.info("after acquire 1")
             }
+
             val acquirer2 = launch {
                 logger.info("before acquire 2")
                 assertFailsWith<TimeoutCancellationException> {
@@ -88,6 +89,7 @@ class SemaphoreTests {
                 }
                 logger.info("after acquire 2")
             }
+
             acquirer1.join()
             acquirer2.join()
         }

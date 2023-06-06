@@ -1,6 +1,6 @@
 package pt.isel.pc.chat
 
-import org.junit.Test
+import org.junit.jupiter.api.Test
 import pt.isel.pc.chat.domain.Messages
 import pt.isel.pc.chat.utils.TestClient
 import pt.isel.pc.chat.utils.TestHelper

@@ -20,9 +20,7 @@ class TestServer private constructor(
         }
     }
 
-    fun sendSignal() {
-        process.destroy()
-    }
+    fun sendSignal() = process.destroy()
 
     fun join() {
         process.waitFor()
@@ -33,9 +31,8 @@ class TestServer private constructor(
         while (true) {
             val line = stdOutQueue.poll(10, TimeUnit.SECONDS)
                 ?: throw TimeoutException("timeout waiting for line")
-            if (pred(line)) {
-                return
-            }
+
+            if (pred(line)) return
         }
     }
 

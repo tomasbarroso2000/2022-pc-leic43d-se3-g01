@@ -1,17 +1,18 @@
 package pt.isel.pc.chat.domain
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import pt.isel.pc.chat.utils.MessageQueue
-import pt.isel.pc.set3.domain.Room
 import pt.isel.pc.chat.utils.suspendingReadLine
 import pt.isel.pc.chat.utils.suspendingWriteLine
+import pt.isel.pc.set3.domain.Room
 import java.io.IOException
 import java.nio.channels.AsynchronousSocketChannel
-import java.util.concurrent.CancellationException
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
+
 
 private const val NR_MAX_MESSAGES = 50
 
@@ -47,30 +48,23 @@ class ConnectedClient(
         object Shutdown : ControlMessage
 
         // ... the stop method was called
-
         object Stop : ControlMessage
     }
 
     private var mainLoop: Job = mainLoop()
     private var readLoop: Job = readLoop()
 
-    suspend fun send(sender: ConnectedClient, message: String) {
-        // just add a control message into the control queue
+    // just add a control message into the control queue
+    suspend fun send(sender: ConnectedClient, message: String) =
         controlQueue.enqueue(ControlMessage.RoomMessage(sender, message))
-    }
 
-    suspend fun shutdown() {
-        // just add a control message into the control queue
-        controlQueue.enqueue(ControlMessage.Shutdown)
-    }
+    // just add a control message into the control queue
+    suspend fun shutdown() = controlQueue.enqueue(ControlMessage.Shutdown)
 
-    suspend fun stop() {
-        controlQueue.enqueue(ControlMessage.Stop)
-    }
+    suspend fun stop() = controlQueue.enqueue(ControlMessage.Stop)
 
     suspend fun join() = mainLoop.join()
-
-
+    
     private val controlQueue = MessageQueue<ControlMessage>(NR_MAX_MESSAGES)
 
     private var room: Room? = null
@@ -87,6 +81,7 @@ class ConnectedClient(
                                 logger.info("[{}] received control message: {}", name, control)
                                 it.suspendingWriteLine(Messages.SERVER_SHUTDOWN)
                             }
+
                             is ControlMessage.Stop -> {
                                 it.suspendingWriteLine(Messages.SERVER_IS_ENDING)
                                 break
@@ -109,7 +104,7 @@ class ConnectedClient(
                         }
                     }
 
-                } catch(ex: Exception) {
+                } catch (ex: Exception) {
                     logger.info("apanhar accept exception")
                 }
             }
@@ -123,45 +118,45 @@ class ConnectedClient(
         clientRequest: ClientRequest,
         socket: AsynchronousSocketChannel
     ): Boolean {
-            when (clientRequest) {
-                is ClientRequest.EnterRoomCommand -> {
-                    logger.info("[{}] received remote client request: {}", name, clientRequest)
-                    room?.remove(this)
-                    room = roomContainer.getByName(clientRequest.name).also {
-                        it.add(this)
-                    }
-                    socket.suspendingWriteLine(Messages.enteredRoom(clientRequest.name))
+        when (clientRequest) {
+            is ClientRequest.EnterRoomCommand -> {
+                logger.info("[{}] received remote client request: {}", name, clientRequest)
+                room?.remove(this)
+                room = roomContainer.getByName(clientRequest.name).also {
+                    it.add(this)
                 }
+                socket.suspendingWriteLine(Messages.enteredRoom(clientRequest.name))
+            }
 
-                ClientRequest.LeaveRoomCommand -> {
-                    logger.info("[{}] received remote client request: {}", name, clientRequest)
-                    room?.remove(this)
-                    room = null
-                }
+            ClientRequest.LeaveRoomCommand -> {
+                logger.info("[{}] received remote client request: {}", name, clientRequest)
+                room?.remove(this)
+                room = null
+            }
 
-                ClientRequest.ExitCommand -> {
-                    logger.info("[{}] received remote client request: {}", name, clientRequest)
-                    room?.remove(this)
-                    socket.suspendingWriteLine(Messages.BYE)
-                    return true
-                }
+            ClientRequest.ExitCommand -> {
+                logger.info("[{}] received remote client request: {}", name, clientRequest)
+                room?.remove(this)
+                socket.suspendingWriteLine(Messages.BYE)
+                return true
+            }
 
-                is ClientRequest.InvalidRequest -> {
-                    logger.info("[{}] received remote client request: {}", name, clientRequest)
-                    socket.suspendingWriteLine(Messages.ERR_INVALID_LINE)
-                }
+            is ClientRequest.InvalidRequest -> {
+                logger.info("[{}] received remote client request: {}", name, clientRequest)
+                socket.suspendingWriteLine(Messages.ERR_INVALID_LINE)
+            }
 
-                is ClientRequest.Message -> {
-                    logger.trace("[{}] received remote client request: {}", name, clientRequest)
-                    val currentRoom = room
-                    if (currentRoom != null) {
-                        currentRoom.post(this, clientRequest.value)
-                    } else {
-                        socket.suspendingWriteLine(Messages.ERR_NOT_IN_A_ROOM)
-                    }
+            is ClientRequest.Message -> {
+                logger.trace("[{}] received remote client request: {}", name, clientRequest)
+                val currentRoom = room
+                if (currentRoom != null) {
+                    currentRoom.post(this, clientRequest.value)
+                } else {
+                    socket.suspendingWriteLine(Messages.ERR_NOT_IN_A_ROOM)
                 }
             }
-                return false
+        }
+        return false
     }
 
     private fun readLoop() =

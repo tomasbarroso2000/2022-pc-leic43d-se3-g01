@@ -1,5 +1,6 @@
 package pt.isel.pc.chat.domain
 
+
 /**
  * Sealed interface to represent all possible request lines sent by the client.
  */
@@ -22,9 +23,9 @@ sealed interface ClientRequest {
 
     companion object {
         fun parse(line: String): ClientRequest {
-            if (!line.startsWith("/")) {
+            if (!line.startsWith("/"))
                 return Message(line)
-            }
+
             val parts = line.split(" ")
             return when (parts[0]) {
                 "/enter" -> parseEnterRoom(parts)
@@ -35,24 +36,15 @@ sealed interface ClientRequest {
         }
 
         private fun parseEnterRoom(parts: List<String>): ClientRequest =
-            if (parts.size != 2) {
-                InvalidRequest("/enter command requires exactly one argument")
-            } else {
-                EnterRoomCommand(parts[1])
-            }
+            if (parts.size != 2) InvalidRequest("/enter command requires exactly one argument")
+            else EnterRoomCommand(parts[1])
 
         private fun parseLeaveRoom(parts: List<String>): ClientRequest =
-            if (parts.size != 1) {
-                InvalidRequest("/leave command does not have arguments")
-            } else {
-                LeaveRoomCommand
-            }
+            if (parts.size != 1) InvalidRequest("/leave command does not have arguments")
+            else LeaveRoomCommand
 
         private fun parseExit(parts: List<String>): ClientRequest =
-            if (parts.size != 1) {
-                InvalidRequest("/exit command does not have arguments")
-            } else {
-                ExitCommand
-            }
+            if (parts.size != 1) InvalidRequest("/exit command does not have arguments")
+            else ExitCommand
     }
 }

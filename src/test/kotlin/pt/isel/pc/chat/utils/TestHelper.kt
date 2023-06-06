@@ -57,13 +57,14 @@ class TestHelper(
     @Throws(InterruptedException::class)
     fun join() {
         val deadlineForJoin = deadline.plusMillis(2000)
+
         for (th in threads) {
             val timeout = (deadlineForJoin.epochSecond - Instant.now().epochSecond).seconds
             th.join(timeout.inWholeMilliseconds)
-            if (th.isAlive) {
+            if (th.isAlive)
                 throw AssertionError("Thread '$th' did not end in the expected time")
-            }
         }
+
         if (!failures.isEmpty()) throw failures.peek()
         if (!errors.isEmpty()) throw errors.peek()
     }
