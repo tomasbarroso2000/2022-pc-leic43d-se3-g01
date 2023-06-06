@@ -1,9 +1,6 @@
 package pt.isel.pc.chat.domain
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import pt.isel.pc.chat.utils.MessageQueue
 import pt.isel.pc.set3.domain.Room
@@ -48,6 +45,10 @@ class ConnectedClient(
 
         // ... the shutdown method was called
         object Shutdown : ControlMessage
+
+        // ... the stop method was called
+
+        object Stop : ControlMessage
     }
 
     private var mainLoop: Job = mainLoop()
@@ -63,6 +64,10 @@ class ConnectedClient(
         controlQueue.enqueue(ControlMessage.Shutdown)
     }
 
+    suspend fun stop() {
+        controlQueue.enqueue(ControlMessage.Stop)
+    }
+
     suspend fun join() = mainLoop.join()
 
 
@@ -74,12 +79,15 @@ class ConnectedClient(
         return scope.launch {
             logger.info("[{}] main loop started", name)
             socket.use {
-                it.suspendingWriteLine(Messages.CLIENT_WELCOME + name)
+                it.suspendingWriteLine(Messages.CLIENT_WELCOME)
                 try {
                     while (true) {
                         when (val control = controlQueue.dequeue(Duration.INFINITE)) {
                             is ControlMessage.Shutdown -> {
                                 logger.info("[{}] received control message: {}", name, control)
+                                it.suspendingWriteLine(Messages.SERVER_SHUTDOWN)
+                            }
+                            is ControlMessage.Stop -> {
                                 it.suspendingWriteLine(Messages.SERVER_IS_ENDING)
                                 break
                             }
@@ -105,7 +113,6 @@ class ConnectedClient(
                     logger.info("apanhar accept exception")
                 }
             }
-            //readLoop.join()
             clientContainer.remove(this@ConnectedClient)
             readLoop.cancelAndJoin()
             logger.info("[{}] main loop ending", name)

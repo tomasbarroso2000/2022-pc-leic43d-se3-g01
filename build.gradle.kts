@@ -18,6 +18,8 @@ dependencies {
     implementation("org.slf4j:slf4j-api:1.7.36")
     implementation("org.slf4j:slf4j-simple:2.0.0-alpha7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.1")
+    implementation("org.testng:testng:7.1.0")
+    implementation("junit:junit:4.13.1")
 
     testImplementation(kotlin("test"))
 
@@ -26,6 +28,7 @@ dependencies {
             attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.EXTERNAL))
         }
     }
+    implementation(kotlin("test"))
 }
 
 tasks.test {

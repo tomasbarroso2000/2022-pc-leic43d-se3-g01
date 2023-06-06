@@ -38,4 +38,17 @@ class ConnectedClientContainer {
             it.join()
         }
     }
+
+    suspend fun stop() {
+        val clientList = lock.withLock {
+            isShuttingDown = true
+            clients.toList()
+        }
+        clientList.forEach {
+            it.stop()
+        }
+        clientList.forEach {
+            it.join()
+        }
+    }
 }

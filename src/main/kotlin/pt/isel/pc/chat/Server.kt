@@ -8,12 +8,14 @@ import pt.isel.pc.chat.domain.ConnectedClient
 import pt.isel.pc.chat.domain.ConnectedClientContainer
 import pt.isel.pc.chat.domain.Messages
 import pt.isel.pc.chat.domain.RoomContainer
+import pt.isel.pc.chat.utils.Semaphore
 import pt.isel.pc.chat.utils.createServerChannel
 import pt.isel.pc.chat.utils.suspendingAccept
 import java.net.InetSocketAddress
 import java.nio.channels.AsynchronousServerSocketChannel
 import java.nio.channels.AsynchronousSocketChannel
 import java.nio.channels.ClosedChannelException
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -26,6 +28,7 @@ import kotlin.system.exitProcess
 class Server(
     private val listeningAddress: String,
     private val listeningPort: Int,
+    //private val maxClients : Int,
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 ) : AutoCloseable {
 
@@ -34,6 +37,8 @@ class Server(
     private var state = State.NOT_STARTED
 
     private val guard = Mutex()
+
+    private val isListening = CountDownLatch(1)
 
     private suspend fun createServerSocketChannel() : AsynchronousServerSocketChannel {
         guard.withLock {
@@ -50,6 +55,8 @@ class Server(
     private val roomContainer = RoomContainer()
     private val clientContainer = ConnectedClientContainer()
 
+    //private val semaphore = Semaphore(maxClients)
+
 
     /**
      * The listening thread is mainly comprised by loop waiting for connections and creating a [ConnectedClient]
@@ -61,10 +68,12 @@ class Server(
             logger.info("server socket bound to ({}:{})", listeningAddress, listeningPort)
             state = State.STARTED
             println(Messages.SERVER_IS_BOUND)
+            isListening.countDown()
             acceptLoop(serverSocket)
         }
     }
 
+    fun waitUntilListening() = isListening.await()
     suspend fun shutdown(timeout : Long) {
         guard.withLock {
             if (state != State.STARTED) {
@@ -72,21 +81,24 @@ class Server(
             }
             state = State.STOPPING
         }
-        clientContainer.shutdown()
         acceptCoroutine.cancelAndJoin()
-        //serverSocket.close()
-        executor.shutdown()
-        val ended = executor.awaitTermination(timeout, TimeUnit.SECONDS)
-        if(!ended)
-            exit()
-        else {
-            guard.withLock {
-                if(state != State.STOPPING) {
-                    throw IllegalStateException("Server can't stop")
+        try {
+            withTimeout(timeout) {
+                clientContainer.shutdown()
+                guard.withLock {
+                    if(state != State.STOPPING) {
+                        throw IllegalStateException("Server can't stop")
+                    }
+                    state = State.STOPPED
                 }
-                state = State.STOPPED
             }
         }
+        catch (e : TimeoutCancellationException) {
+            println(e.message)
+            //logger.info(e.message)
+            exit()
+        }
+        executor.shutdown()
     }
 
     suspend fun join() {
@@ -104,7 +116,7 @@ class Server(
             }
             state = State.STOPPED
         }
-        exitProcess(0)
+        clientContainer.stop()
     }
     override fun close(){
         scope.launch {
@@ -118,7 +130,6 @@ class Server(
         var clientId = 0
         while (isStarted()) {
             try {
-                // TODO: throttling
                 logger.info("accepting new client")
 
                 val socket: AsynchronousSocketChannel = serverSocket.suspendingAccept()
