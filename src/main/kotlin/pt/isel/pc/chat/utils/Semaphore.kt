@@ -2,7 +2,9 @@ package pt.isel.pc.chat.utils
 
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withTimeout
 import java.util.*
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.locks.ReentrantLock
@@ -11,6 +13,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.jvm.Throws
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.nanoseconds
 
 class Semaphore(initialUnits: Int) {
 
@@ -31,9 +34,7 @@ class Semaphore(initialUnits: Int) {
         if (requests.isEmpty()) {
             units += 1
             null
-        } else {
-            requests.removeFirst()
-        }
+        } else requests.removeFirst()
     }?.let {
         it.isDone = true
         it.continuation?.resume(Unit)
@@ -42,31 +43,29 @@ class Semaphore(initialUnits: Int) {
     @Throws(TimeoutException::class, CancellationException::class)
     suspend fun acquire(timeout: Duration) {
         //fast-path
-        mutex.lock()
-        if (requests.isEmpty() && units != 0) {
-            units -= 1
-            mutex.unlock()
-            return
-        }
-
-        //suspend-path
-        if (timeout.isZero) throw TimeoutException("timeout")
-
         val request = Request()
 
-        return suspendCancellableCoroutineWithTimeout(timeout) { cont ->
-            try {
-                request.continuation = cont
-                requests.add(request)
-                mutex.unlock()
-            } catch (e: CancellationException) {
-                handleCancellation(e, request)?.let {
-                    mutex.unlock()
-                    cont.resumeWithException(it)
+        try {
+            withTimeout(timeout.coerceAtLeast(1.nanoseconds)) {
+                suspendCancellableCoroutine<Unit> { cont ->
+                    guard.withLock {
+                        if (requests.isEmpty() && units != 0) {
+                            units -= 1
+                            cont.resume(Unit)
+                        } else {
+                            // suspend path
+                            request.continuation = cont
+                            requests.add(request)
+                        }
+                    }
                 }
             }
         }
+        catch (e : CancellationException) {
+            handleCancellation(e, request)
+        }
     }
+
 
     private fun handleCancellation(cause: Throwable?, request: Request): Throwable? {
         guard.withLock {

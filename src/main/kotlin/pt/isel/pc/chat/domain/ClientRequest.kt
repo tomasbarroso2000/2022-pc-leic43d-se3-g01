@@ -5,7 +5,6 @@ package pt.isel.pc.chat.domain
  * Sealed interface to represent all possible request lines sent by the client.
  */
 sealed interface ClientRequest {
-
     // Message to be sent to the room where the client currently is
     data class Message(val value: String) : ClientRequest
 

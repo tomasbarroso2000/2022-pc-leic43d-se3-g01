@@ -1,6 +1,5 @@
 package pt.isel.pc.chat.domain
 
-import pt.isel.pc.set3.domain.Room
 import java.util.concurrent.ConcurrentHashMap
 
 

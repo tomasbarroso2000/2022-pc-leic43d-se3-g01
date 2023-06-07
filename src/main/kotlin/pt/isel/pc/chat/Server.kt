@@ -8,7 +8,6 @@ import pt.isel.pc.chat.domain.ConnectedClient
 import pt.isel.pc.chat.domain.ConnectedClientContainer
 import pt.isel.pc.chat.domain.Messages
 import pt.isel.pc.chat.domain.RoomContainer
-import pt.isel.pc.chat.utils.Semaphore
 import pt.isel.pc.chat.utils.createServerChannel
 import pt.isel.pc.chat.utils.suspendingAccept
 import java.net.InetSocketAddress
@@ -18,8 +17,6 @@ import java.nio.channels.ClosedChannelException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
-import kotlin.system.exitProcess
 
 
 /**
@@ -31,6 +28,9 @@ class Server(
     //private val maxClients : Int,
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 ) : AutoCloseable {
+    companion object {
+        private val logger = LoggerFactory.getLogger(Server::class.java)
+    }
 
     private enum class State { NOT_STARTED, STARTED, STOPPING, STOPPED }
 
@@ -51,12 +51,10 @@ class Server(
     private lateinit var serverSocket: AsynchronousServerSocketChannel
 
     private val scope = CoroutineScope(Dispatchers.IO)
-
     private val roomContainer = RoomContainer()
     private val clientContainer = ConnectedClientContainer()
 
     //private val semaphore = Semaphore(maxClients)
-
 
     /**
      * The listening thread is mainly comprised by loop waiting for connections and creating a [ConnectedClient]
@@ -74,11 +72,12 @@ class Server(
     }
 
     fun waitUntilListening() = isListening.await()
+
     suspend fun shutdown(timeout : Long) {
         guard.withLock {
-            if (state != State.STARTED) {
+            if (state != State.STARTED)
                 throw IllegalStateException("Server hasn't started or has been stopped")
-            }
+
             state = State.STOPPING
         }
         acceptCoroutine.cancelAndJoin()
@@ -86,14 +85,13 @@ class Server(
             withTimeout(timeout) {
                 clientContainer.shutdown()
                 guard.withLock {
-                    if(state != State.STOPPING) {
+                    if (state != State.STOPPING)
                         throw IllegalStateException("Server can't stop")
-                    }
+
                     state = State.STOPPED
                 }
             }
-        }
-        catch (e : TimeoutCancellationException) {
+        } catch (e : TimeoutCancellationException) {
             println(e.message)
             //logger.info(e.message)
             exit()
@@ -103,7 +101,7 @@ class Server(
 
     suspend fun join() {
         guard.withLock {
-            if(state == State.NOT_STARTED || state == State.STOPPED)
+            if (state == State.NOT_STARTED || state == State.STOPPED)
                 throw IllegalStateException("Server is not active")
         }
         acceptCoroutine.join()
@@ -111,20 +109,21 @@ class Server(
 
     suspend fun exit() {
         guard.withLock {
-            if (state == State.NOT_STARTED || state == State.STOPPED) {
+            if (state == State.NOT_STARTED || state == State.STOPPED)
                 throw IllegalStateException("Server hasn't started or has been stopped")
-            }
+
             state = State.STOPPED
         }
         clientContainer.stop()
     }
-    override fun close(){
+
+    override fun close() {
         scope.launch {
             shutdown(5000)
         }
     }
 
-    suspend fun isStarted() = guard.withLock {  state == State.STARTED }
+    private suspend fun isStarted() = guard.withLock {  state == State.STARTED }
 
     private suspend fun acceptLoop(serverSocket: AsynchronousServerSocketChannel) {
         var clientId = 0
@@ -142,8 +141,5 @@ class Server(
                 logger.info("Server is shutting down")
             }
         }
-    }
-    companion object {
-        private val logger = LoggerFactory.getLogger(Server::class.java)
     }
 }

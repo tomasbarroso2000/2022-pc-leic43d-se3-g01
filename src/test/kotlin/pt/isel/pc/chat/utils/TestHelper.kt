@@ -12,7 +12,6 @@ typealias TestFunction = (Int, () -> Boolean) -> Unit
 class TestHelper(
     duration: Duration,
 ) {
-
     private val deadline = Instant.now().plusMillis(duration.inWholeMilliseconds)
     private val failures = ConcurrentLinkedQueue<AssertionError>()
     private val errors = ConcurrentLinkedQueue<Exception>()

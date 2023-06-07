@@ -21,6 +21,7 @@ class MessagingTests {
         val clients = List(nOfClients) {
             TestClient()
         }
+
         Server("0.0.0.0", 8080).use { server ->
             // and: a server listening
             server.waitUntilListening()
@@ -36,19 +37,15 @@ class MessagingTests {
             // when: client 0 sends a message
             clients[0].send("Hi there.")
             clients.forEach {
-                if (it != clients[0]) {
-                    // then: all clients, other than client 0, receive the message
+                if (it != clients[0]) // then: all clients, other than client 0, receive the message
                     assertEquals(Messages.messageFromClient("client-1", "Hi there."), it.receive())
-                }
             }
 
             // when: client 1 sends a message
             clients[1].send("Hello.")
             clients.forEach {
-                if (it != clients[1]) {
-                    // then: all clients, other than client 1, receive the message
+                if (it != clients[1]) // then: all clients, other than client 1, receive the message
                     assertEquals(Messages.messageFromClient("client-2", "Hello."), it.receive())
-                }
             }
             clients.forEach {
                 // when: all clients ask to exit
@@ -69,13 +66,14 @@ class MessagingTests {
         val nOfClients = 100
         val nOfMessages = 100
         val delayBetweenMessagesInMillis = 0L
+        val testHelper = TestHelper(120.seconds)
+        val counter = ConcurrentHashMap<String, AtomicLong>()
 
         // and: a set of clients
         val clients = List(nOfClients) {
             TestClient()
         }
-        val testHelper = TestHelper(120.seconds)
-        val counter = ConcurrentHashMap<String, AtomicLong>()
+
         Server("0.0.0.0", 8080).use { server ->
             // and: a listening server
             server.waitUntilListening()
@@ -99,9 +97,8 @@ class MessagingTests {
                                 counter.computeIfAbsent(msg) { AtomicLong() }.incrementAndGet()
 
                                 // ... when all the expected messages are receives, we end the thread
-                                if (++receivedMessages == (nOfClients - 1) * nOfMessages) {
+                                if (++receivedMessages == (nOfClients - 1) * nOfMessages)
                                     break
-                                }
                             } catch (ex: SocketTimeoutException) {
                                 throw RuntimeException("timeout with '$receivedMessages' received messages", ex)
                             }

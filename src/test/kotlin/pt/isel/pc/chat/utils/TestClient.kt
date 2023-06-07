@@ -10,12 +10,13 @@ import kotlin.test.assertEquals
 
 class TestClient {
     private val socket = Socket()
-    private var writer: BufferedWriter? = null
-    private var reader: BufferedReader? = null
 
     init {
         socket.soTimeout = 5_000
     }
+
+    private var writer: BufferedWriter? = null
+    private var reader: BufferedReader? = null
 
     fun connect() {
         socket.connect(InetSocketAddress("127.0.0.1", 8080))
@@ -26,7 +27,7 @@ class TestClient {
 
     fun send(msg: String) {
         val observed = writer
-        requireNotNull(observed)
+        requireNotNull(observed) {"Observed ($observed) cannot be null!"}
         observed.write(msg)
         observed.newLine()
         observed.flush()
@@ -34,7 +35,7 @@ class TestClient {
 
     fun receive(): String? {
         val observed = reader
-        requireNotNull(observed)
+        requireNotNull(observed) {"Observed ($observed) cannot be null!"}
         return observed.readLine()
     }
 }

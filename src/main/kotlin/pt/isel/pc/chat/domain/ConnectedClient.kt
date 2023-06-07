@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory
 import pt.isel.pc.chat.utils.MessageQueue
 import pt.isel.pc.chat.utils.suspendingReadLine
 import pt.isel.pc.chat.utils.suspendingWriteLine
-import pt.isel.pc.set3.domain.Room
 import java.io.IOException
 import java.nio.channels.AsynchronousSocketChannel
 import kotlin.time.Duration
@@ -30,6 +29,10 @@ class ConnectedClient(
     private val scope: CoroutineScope,
     private val clientContainer: ConnectedClientContainer,
 ) {
+
+    companion object {
+        private val logger = LoggerFactory.getLogger(ConnectedClient::class.java)
+    }
 
     private val name = "client-$id"
 
@@ -177,8 +180,4 @@ class ConnectedClient(
             }
             logger.info("[{}] client loop ending", name)
         }
-
-    companion object {
-        private val logger = LoggerFactory.getLogger(ConnectedClient::class.java)
-    }
 }

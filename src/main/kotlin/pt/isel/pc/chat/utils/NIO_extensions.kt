@@ -6,17 +6,14 @@ import org.slf4j.LoggerFactory
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.CharBuffer
-import java.nio.channels.AsynchronousChannelGroup
-import java.nio.channels.AsynchronousServerSocketChannel
-import java.nio.channels.AsynchronousSocketChannel
-import java.nio.channels.CompletionHandler
+import java.nio.channels.*
 import java.util.concurrent.CancellationException
 import java.util.concurrent.ExecutorService
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 
-private val logger = LoggerFactory.getLogger("NIO extensions")
+/*private val logger = LoggerFactory.getLogger("NIO extensions")
 private val encoder = Charsets.UTF_8.newEncoder()
 private val decoder = Charsets.UTF_8.newDecoder()
 
@@ -24,12 +21,13 @@ fun createServerChannel(address: InetSocketAddress, executor: ExecutorService): 
     val group = AsynchronousChannelGroup.withThreadPool(executor)
     val serverSocket = AsynchronousServerSocketChannel.open(group)
     serverSocket.bind(address)
+
     return serverSocket
 }
 
 suspend fun AsynchronousServerSocketChannel.suspendingAccept(): AsynchronousSocketChannel {
     return suspendCancellableCoroutine { continuation ->
-        accept(null, object : CompletionHandler<AsynchronousSocketChannel, Any?> {
+        accept(null, object: CompletionHandler<AsynchronousSocketChannel, Any?> {
             override fun completed(socketChannel: AsynchronousSocketChannel, attachment: Any?) {
                 continuation.resume(socketChannel)
             }
@@ -119,4 +117,65 @@ private fun AsynchronousSocketChannel.readChunk(
             continuation.resumeWithException(error)
         }
     })
+}*/
+
+private val logger = LoggerFactory.getLogger("NIO extensions")
+
+fun createServerChannel(address: InetSocketAddress, executor: ExecutorService): AsynchronousServerSocketChannel {
+    val group = AsynchronousChannelGroup.withThreadPool(executor)
+    val serverSocket = AsynchronousServerSocketChannel.open(group)
+    serverSocket.bind(address)
+
+    return serverSocket
+}
+
+suspend fun AsynchronousServerSocketChannel.suspendingAccept(): AsynchronousSocketChannel =
+    suspendCancellableCoroutine { continuation ->
+        accept(null, object: CompletionHandler<AsynchronousSocketChannel, Any?> {
+            override fun completed(socketChannel: AsynchronousSocketChannel, attachment: Any?) {
+                continuation.resume(socketChannel)
+            }
+
+            override fun failed(error: Throwable, attachment: Any?) {
+                logger.info("Suspending accept failed {}", error.message)
+                continuation.resumeWithException(error)
+            }
+        })
+    }
+
+suspend fun AsynchronousSocketChannel.suspendingReadLine(dst: ByteBuffer): Int =
+    suspendCancellableCoroutine { continuation ->
+        continuation.invokeOnCancellation {
+            close()
+        }
+        read(dst, null, object : CompletionHandler<Int, Any?> {
+            override fun completed(result: Int, attachment: Any?) {
+                if (continuation.isCancelled)
+                    continuation.resumeWithException(CancellationException())
+                else continuation.resume(result)
+            }
+
+            override fun failed(error: Throwable, attachment: Any?) {
+                continuation.resumeWithException(error)
+            }
+        })
+    }
+
+suspend fun AsynchronousSocketChannel.suspendingWriteLine(dst: ByteBuffer): Int {
+    return suspendCancellableCoroutine { continuation ->
+        continuation.invokeOnCancellation {
+            close()
+        }
+        write(dst, null, object : CompletionHandler<Int, Any?> {
+            override fun completed(result: Int, attachment: Any?) {
+                if (continuation.isCancelled)
+                    continuation.resumeWithException(CancellationException())
+                else continuation.resume(result)
+            }
+
+            override fun failed(error: Throwable, attachment: Any?) {
+                continuation.resumeWithException(error)
+            }
+        })
+    }
 }

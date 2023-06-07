@@ -6,9 +6,17 @@ import java.util.concurrent.TimeoutException
 import kotlin.concurrent.thread
 
 
-class TestServer private constructor(
-    private val process: Process,
-) : AutoCloseable {
+class TestServer private constructor(private val process: Process): AutoCloseable {
+
+    companion object {
+        fun start(): TestServer {
+            return TestServer(
+                ProcessBuilder("build/install/jvm/bin/jvm")
+                    .redirectErrorStream(true)
+                    .start()
+            )
+        }
+    }
 
     private val stdOutQueue = LinkedBlockingQueue<String?>()
 
@@ -36,19 +44,7 @@ class TestServer private constructor(
         }
     }
 
-    companion object {
-        fun start(): TestServer {
-            return TestServer(
-                ProcessBuilder("build/install/jvm/bin/jvm")
-                    .redirectErrorStream(true)
-                    .start()
-            )
-        }
-    }
-
     override fun close() {
-        if (process.isAlive) {
-            process.destroyForcibly()
-        }
+        if (process.isAlive) process.destroyForcibly()
     }
 }
