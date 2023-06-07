@@ -5,6 +5,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
+import pt.isel.pc.chat.utils.BufferedSocketChannel
 import pt.isel.pc.chat.utils.MessageQueue
 import pt.isel.pc.chat.utils.suspendingReadLine
 import pt.isel.pc.chat.utils.suspendingWriteLine
@@ -28,6 +29,7 @@ class ConnectedClient(
     private val roomContainer: RoomContainer,
     private val scope: CoroutineScope,
     private val clientContainer: ConnectedClientContainer,
+    private val bufChannel: BufferedSocketChannel
 ) {
 
     companion object {
@@ -75,29 +77,29 @@ class ConnectedClient(
     private fun mainLoop(): Job {
         return scope.launch {
             logger.info("[{}] main loop started", name)
-            socket.use {
-                it.suspendingWriteLine(Messages.CLIENT_WELCOME)
+            //socket.use {
+            bufChannel.writeLine(Messages.CLIENT_WELCOME)
                 try {
                     while (true) {
                         when (val control = controlQueue.dequeue(Duration.INFINITE)) {
                             is ControlMessage.Shutdown -> {
                                 logger.info("[{}] received control message: {}", name, control)
-                                it.suspendingWriteLine(Messages.SERVER_SHUTDOWN)
+                                bufChannel.writeLine(Messages.SERVER_SHUTDOWN)
                             }
 
                             is ControlMessage.Stop -> {
-                                it.suspendingWriteLine(Messages.SERVER_IS_ENDING)
+                                bufChannel.writeLine(Messages.SERVER_IS_ENDING)
                                 break
                             }
 
                             is ControlMessage.RoomMessage -> {
                                 logger.trace("[{}] received control message: {}", name, control)
-                                it.suspendingWriteLine(Messages.messageFromClient(control.sender.name, control.message))
+                                bufChannel.writeLine(Messages.messageFromClient(control.sender.name, control.message))
                             }
 
                             is ControlMessage.RemoteClientRequest -> {
                                 val line = control.request
-                                if (handleRemoteClientRequest(line, it)) break
+                                if (handleRemoteClientRequest(line)) break
                             }
 
                             ControlMessage.RemoteInputClosed -> {
@@ -110,7 +112,7 @@ class ConnectedClient(
                 } catch (ex: Exception) {
                     logger.info("apanhar accept exception")
                 }
-            }
+            //}
             clientContainer.remove(this@ConnectedClient)
             readLoop.cancelAndJoin()
             logger.info("[{}] main loop ending", name)
@@ -118,8 +120,7 @@ class ConnectedClient(
     }
 
     private suspend fun handleRemoteClientRequest(
-        clientRequest: ClientRequest,
-        socket: AsynchronousSocketChannel
+        clientRequest: ClientRequest
     ): Boolean {
         when (clientRequest) {
             is ClientRequest.EnterRoomCommand -> {
@@ -128,7 +129,7 @@ class ConnectedClient(
                 room = roomContainer.getByName(clientRequest.name).also {
                     it.add(this)
                 }
-                socket.suspendingWriteLine(Messages.enteredRoom(clientRequest.name))
+                bufChannel.writeLine(Messages.enteredRoom(clientRequest.name))
             }
 
             ClientRequest.LeaveRoomCommand -> {
@@ -140,13 +141,13 @@ class ConnectedClient(
             ClientRequest.ExitCommand -> {
                 logger.info("[{}] received remote client request: {}", name, clientRequest)
                 room?.remove(this)
-                socket.suspendingWriteLine(Messages.BYE)
+                bufChannel.writeLine(Messages.BYE)
                 return true
             }
 
             is ClientRequest.InvalidRequest -> {
                 logger.info("[{}] received remote client request: {}", name, clientRequest)
-                socket.suspendingWriteLine(Messages.ERR_INVALID_LINE)
+                bufChannel.writeLine(Messages.ERR_INVALID_LINE)
             }
 
             is ClientRequest.Message -> {
@@ -155,7 +156,7 @@ class ConnectedClient(
                 if (currentRoom != null) {
                     currentRoom.post(this, clientRequest.value)
                 } else {
-                    socket.suspendingWriteLine(Messages.ERR_NOT_IN_A_ROOM)
+                    bufChannel.writeLine(Messages.ERR_NOT_IN_A_ROOM)
                 }
             }
         }
@@ -166,7 +167,7 @@ class ConnectedClient(
         scope.launch {
             try {
                 while (true) {
-                    val line = socket.suspendingReadLine()
+                    val line = bufChannel.readLine()
                     if (line == null) {
                         logger.info("[{}] end of input stream reached", name)
                         controlQueue.enqueue(ControlMessage.RemoteInputClosed)

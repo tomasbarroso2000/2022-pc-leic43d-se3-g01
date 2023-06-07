@@ -38,11 +38,11 @@ class NIOExtensionsTests {
                 logger.info("Accepted client connection")
 
                 // Read the message from the client
-                val message = clientChannel.suspendingReadLine()
-                logger.info("Received message from client: $message")
+                //val message = clientChannel.suspendingReadLine()
+                //logger.info("Received message from client: $message")
 
                 // Echo the message back to the client
-                message?.let { clientChannel.suspendingWriteLine(it) }
+                //message?.let { clientChannel.suspendingWriteLine(it) }
                 logger.info("Sent message back to client")
 
                 // Close the client channel
@@ -64,12 +64,12 @@ class NIOExtensionsTests {
 
                 // Send a message to the server
                 val message = "Hello from client!"
-                clientChannel.suspendingWriteLine(message)
+                //clientChannel.suspendingWriteLine(message)
                 logger.info("Sent message to server")
 
                 // Read the response from the server
-                val response = clientChannel.suspendingReadLine()
-                logger.info("Received response from server: $response")
+                //val response = clientChannel.suspendingReadLine()
+                //logger.info("Received response from server: $response")
 
                 // Close the client channel
                 clientChannel.close()

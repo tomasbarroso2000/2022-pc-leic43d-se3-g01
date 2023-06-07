@@ -8,6 +8,7 @@ import pt.isel.pc.chat.domain.ConnectedClient
 import pt.isel.pc.chat.domain.ConnectedClientContainer
 import pt.isel.pc.chat.domain.Messages
 import pt.isel.pc.chat.domain.RoomContainer
+import pt.isel.pc.chat.utils.BufferedSocketChannel
 import pt.isel.pc.chat.utils.createServerChannel
 import pt.isel.pc.chat.utils.suspendingAccept
 import java.net.InetSocketAddress
@@ -135,7 +136,9 @@ class Server(
                 logger.info("client socket accepted, remote address is {}", socket.remoteAddress)
                 println(Messages.SERVER_ACCEPTED_CLIENT)
 
-                val client = ConnectedClient(socket, ++clientId, roomContainer, scope , clientContainer)
+                val bufChannel = BufferedSocketChannel(socket)
+
+                val client = ConnectedClient(socket, ++clientId, roomContainer, scope , clientContainer, bufChannel)
                 clientContainer.add(client)
             } catch (ex: ClosedChannelException) {
                 logger.info("Server is shutting down")
