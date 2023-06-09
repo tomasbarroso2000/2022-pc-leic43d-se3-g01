@@ -3,7 +3,6 @@ package pt.isel.pc.chat.utils
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withTimeout
 import java.util.*
 import java.util.concurrent.TimeoutException

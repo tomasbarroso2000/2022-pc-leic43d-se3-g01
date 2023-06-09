@@ -12,13 +12,6 @@ class BufferedSocketChannel(
     // fill parameter is just for test purposes
     val fill: (ByteBuffer) -> Int = {-2})  : Closeable {
 
-    constructor(channel : AsynchronousSocketChannel,
-                bufCapacity : Int = BYTE_BUF_SIZE,
-                maxLine : Int = MAX_LINE,
-                fill: (ByteBuffer) -> Int = {-2}) : this(channel,bufCapacity,fill) {
-        this.maxLine = maxLine
-    }
-
     companion object {
         const val BYTE_BUF_SIZE = 512
         const val CHAR_BUF_SIZE = BYTE_BUF_SIZE*2
@@ -42,10 +35,10 @@ class BufferedSocketChannel(
     private var lastEol : Char = NULL_CHAR
 
 
-    private inline fun isEol(c:Char) =
+    private fun isEol(c:Char) =
         c == '\n' || c == '\r'
 
-    private inline fun isEolPair(c1:Char, c2: Char) =
+    private fun isEolPair(c1:Char, c2: Char) =
         c1 != c2 && isEol(c1) && isEol(c2)
 
     private class LineStat(val size : Int, val termSize : Int)
@@ -63,15 +56,14 @@ class BufferedSocketChannel(
     private fun tryFindLine() : LineStat {
         for(i in (startIndex until minOf(maxLine+startIndex,chars.position()))) {
             if (isEol(chars[i])) {
-                if (i < chars.position() - 1) {
-                    return if (isEolPair(chars[i], chars[i+1]))
+                return if (i < chars.position() - 1) {
+                    if (isEolPair(chars[i], chars[i+1]))
                         LineStat(i+2, 2);
                     else
                         LineStat(i +1, 1)
-                }
-                else {
+                } else {
                     lastEol = chars[i]
-                    return LineStat(i +1, 1) // possible uncompleted
+                    LineStat(i +1, 1) // possible uncompleted
                 }
             }
         }

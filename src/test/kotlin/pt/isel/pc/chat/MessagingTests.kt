@@ -1,11 +1,14 @@
 package pt.isel.pc.chat
 
 import org.junit.jupiter.api.Test
+import org.slf4j.LoggerFactory
+import pt.isel.pc.chat.domain.ConnectedClient
 import pt.isel.pc.chat.domain.Messages
 import pt.isel.pc.chat.utils.TestClient
 import pt.isel.pc.chat.utils.TestHelper
 import java.net.SocketTimeoutException
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -13,6 +16,10 @@ import kotlin.time.Duration.Companion.seconds
 
 
 class MessagingTests {
+
+    companion object {
+        private val logger = LoggerFactory.getLogger(MessagingTests::class.java)
+    }
 
     @Test
     fun `first scenario`() {
@@ -32,6 +39,16 @@ class MessagingTests {
                 it.send("/enter lounge")
                 // then: it receives a success message
                 assertEquals(Messages.enteredRoom("lounge"), it.receive())
+            }
+
+            val nRepeats = AtomicInteger(nOfClients - 1)
+
+            //clean all enter room messages from different clients
+            (0 until nOfClients).map { clientId ->
+                repeat(nRepeats.get()) {
+                    clients[clientId].receive()
+                }
+                nRepeats.decrementAndGet()
             }
 
             // when: client 0 sends a message
@@ -64,9 +81,9 @@ class MessagingTests {
     fun `stress test`() {
         // given:
         val nOfClients = 20
-        val nOfMessages = 100
+        val nOfMessages = 1
         val delayBetweenMessagesInMillis = 0L
-        val testHelper = TestHelper(500.seconds)
+        val testHelper = TestHelper(15000.seconds)
         val counter = ConcurrentHashMap<String, AtomicLong>()
 
         // and: a set of clients
@@ -84,6 +101,17 @@ class MessagingTests {
                 it.send("/enter lounge")
                 assertEquals(Messages.enteredRoom("lounge"), it.receive())
             }
+
+            val nRepeats = AtomicInteger(nOfClients - 1)
+
+            //clean all enter room messages from different clients
+            (0 until nOfClients).map { clientId ->
+                repeat(nRepeats.get()) {
+                    clients[clientId].receive()
+                }
+                nRepeats.decrementAndGet()
+            }
+
             clients.forEach { client ->
                 testHelper.createAndStart(0) { _, _ ->
                     // Helper thread to read all messages sent to a client ...

@@ -27,7 +27,7 @@ import kotlin.time.Duration
 class Server(
     private val listeningAddress: String,
     private val listeningPort: Int,
-    private val maxClients : Int,
+    maxClients : Int,
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 ) : AutoCloseable {
     companion object {
@@ -35,11 +35,8 @@ class Server(
     }
 
     private enum class State { NOT_STARTED, STARTED, STOPPING, STOPPED }
-
     private var state = State.NOT_STARTED
-
     private val guard = Mutex()
-
     private val isListening = CountDownLatch(1)
 
     private suspend fun createServerSocketChannel() : AsynchronousServerSocketChannel {
@@ -75,7 +72,7 @@ class Server(
 
     fun waitUntilListening() = isListening.await()
 
-    suspend fun shutdown(timeout : Long) {
+    suspend fun shutdown(timeout: Long) {
         guard.withLock {
             if (state != State.STARTED)
                 throw IllegalStateException("Server hasn't started or has been stopped")
@@ -93,7 +90,7 @@ class Server(
                     state = State.STOPPED
                 }
             }
-        } catch (e : TimeoutCancellationException) {
+        } catch (e: TimeoutCancellationException) {
             println(e.message)
             exit()
         }
@@ -138,7 +135,7 @@ class Server(
 
                 val bufChannel = BufferedSocketChannel(socket)
 
-                val client = ConnectedClient(socket, ++clientId, roomContainer, scope , clientContainer, bufChannel, semaphore)
+                val client = ConnectedClient(++clientId, roomContainer, scope , clientContainer, bufChannel, semaphore)
                 clientContainer.add(client)
             } catch (ex: ClosedChannelException) {
                 logger.info("Server is shutting down")

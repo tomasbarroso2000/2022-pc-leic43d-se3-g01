@@ -21,15 +21,17 @@ fun createServerChannel(address: InetSocketAddress, executor: ExecutorService): 
 }
 
 suspend fun AsynchronousServerSocketChannel.suspendingAccept(): AsynchronousSocketChannel =
-    suspendCancellableCoroutine { continuation ->
+    suspendCancellableCoroutine { cont ->
+        cont.invokeOnCancellation {
+            close()
+        }
         accept(null, object: CompletionHandler<AsynchronousSocketChannel, Any?> {
             override fun completed(socketChannel: AsynchronousSocketChannel, attachment: Any?) {
-                continuation.resume(socketChannel)
+                cont.resume(socketChannel)
             }
 
             override fun failed(error: Throwable, attachment: Any?) {
-                logger.info("Suspending accept failed {}", error.message)
-                continuation.resumeWithException(error)
+                cont.resumeWithException(error)
             }
         })
     }

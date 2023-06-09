@@ -5,13 +5,13 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
+import pt.isel.pc.chat.domain.Messages.ENTER_ROOM
+import pt.isel.pc.chat.domain.Messages.LEAVE_ROOM
 import pt.isel.pc.chat.utils.*
 import java.io.IOException
-import java.nio.channels.AsynchronousSocketChannel
 import kotlin.time.Duration
 
-
-private const val NR_MAX_MESSAGES = 50
+private const val NR_MAX_MESSAGES = 100
 
 /**
  * Responsible for handling a single connected client. It is comprised by two threads:
@@ -21,7 +21,6 @@ private const val NR_MAX_MESSAGES = 50
  *    or from the inner `readLoopThread`. It is the only thread that writes to the client socket.
  */
 class ConnectedClient(
-    private val socket: AsynchronousSocketChannel,
     id: Int,
     private val roomContainer: RoomContainer,
     private val scope: CoroutineScope,
@@ -75,42 +74,40 @@ class ConnectedClient(
     private fun mainLoop(): Job {
         return scope.launch {
             logger.info("[{}] main loop started", name)
-            //socket.use {
-            bufChannel.writeLine(Messages.CLIENT_WELCOME)
-                try {
-                    while (true) {
-                        when (val control = controlQueue.dequeue(Duration.INFINITE)) {
-                            is ControlMessage.Shutdown -> {
-                                logger.info("[{}] received control message: {}", name, control)
-                                bufChannel.writeLine(Messages.SERVER_SHUTDOWN)
-                            }
+            try {
+                bufChannel.writeLine(Messages.CLIENT_WELCOME)
+                while (true) {
+                    when (val control = controlQueue.dequeue(Duration.INFINITE)) {
+                        is ControlMessage.Shutdown -> {
+                            logger.info("[{}] received control message: {}", name, control)
+                            bufChannel.writeLine(Messages.SERVER_SHUTDOWN)
+                        }
 
-                            is ControlMessage.Stop -> {
-                                bufChannel.writeLine(Messages.SERVER_IS_ENDING)
-                                break
-                            }
+                        is ControlMessage.Stop -> {
+                            bufChannel.writeLine(Messages.SERVER_IS_ENDING)
+                            break
+                        }
 
-                            is ControlMessage.RoomMessage -> {
-                                logger.trace("[{}] received control message: {}", name, control)
-                                bufChannel.writeLine(Messages.messageFromClient(control.sender.name, control.message))
-                            }
+                        is ControlMessage.RoomMessage -> {
+                            logger.trace("[{}] received control message: {}", name, control)
+                            bufChannel.writeLine(Messages.messageFromClient(control.sender.name, control.message))
+                        }
 
-                            is ControlMessage.RemoteClientRequest -> {
-                                val line = control.request
-                                if (handleRemoteClientRequest(line)) break
-                            }
+                        is ControlMessage.RemoteClientRequest -> {
+                            val line = control.request
+                            if (handleRemoteClientRequest(line)) break
+                        }
 
-                            ControlMessage.RemoteInputClosed -> {
-                                logger.info("[{}] received control message: {}", name, control)
-                                break
-                            }
+                        ControlMessage.RemoteInputClosed -> {
+                            logger.info("[{}] received control message: {}", name, control)
+                            break
                         }
                     }
-
-                } catch (ex: Exception) {
-                    logger.info("apanhar accept exception")
                 }
-            //}
+
+            } catch (ex: Exception) {
+                logger.info("accept exception")
+            }
             clientContainer.remove(this@ConnectedClient)
             semaphore.release()
             readLoop.cancelAndJoin()
@@ -129,10 +126,14 @@ class ConnectedClient(
                     it.add(this)
                 }
                 bufChannel.writeLine(Messages.enteredRoom(clientRequest.name))
+                room?.post(this, ENTER_ROOM)
             }
 
             ClientRequest.LeaveRoomCommand -> {
                 logger.info("[{}] received remote client request: {}", name, clientRequest)
+
+                room?.post(this, LEAVE_ROOM)
+
                 room?.remove(this)
                 room = null
             }
@@ -162,22 +163,21 @@ class ConnectedClient(
         return false
     }
 
-    private fun readLoop() =
-        scope.launch {
-            try {
-                while (true) {
-                    val line = bufChannel.readLine()
-                    if (line == null) {
-                        logger.info("[{}] end of input stream reached", name)
-                        controlQueue.enqueue(ControlMessage.RemoteInputClosed)
-                        break
-                    }
-                    controlQueue.enqueue(ControlMessage.RemoteClientRequest(ClientRequest.parse(line)))
+    private fun readLoop() = scope.launch {
+        try {
+            while (true) {
+                val line = bufChannel.readLine()
+                if (line == null) {
+                    logger.info("[{}] end of input stream reached", name)
+                    controlQueue.enqueue(ControlMessage.RemoteInputClosed)
+                    break
                 }
-            } catch (ex: IOException) {
-                logger.info("Server shutting down")
-                logger.info(ex.message)
+                controlQueue.enqueue(ControlMessage.RemoteClientRequest(ClientRequest.parse(line)))
             }
-            logger.info("[{}] client loop ending", name)
+        } catch (ex: IOException) {
+            logger.info("Server shutting down")
+            logger.info(ex.message)
         }
+        logger.info("[{}] client loop ending", name)
+    }
 }

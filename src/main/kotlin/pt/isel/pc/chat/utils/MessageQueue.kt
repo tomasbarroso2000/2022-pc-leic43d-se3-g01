@@ -5,13 +5,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeout
 import org.slf4j.LoggerFactory
-import pt.isel.pc.chat.Server
 import java.util.*
-import java.util.concurrent.TimeoutException
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 import kotlin.jvm.Throws
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.nanoseconds
