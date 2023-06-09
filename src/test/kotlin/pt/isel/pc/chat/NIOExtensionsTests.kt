@@ -5,14 +5,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
-import pt.isel.pc.chat.utils.createServerChannel
-import pt.isel.pc.chat.utils.suspendingAccept
-import pt.isel.pc.chat.utils.suspendingReadLine
-import pt.isel.pc.chat.utils.suspendingWriteLine
+import pt.isel.pc.chat.utils.*
 import java.net.InetSocketAddress
 import java.nio.channels.AsynchronousSocketChannel
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.test.assertEquals
 
 
 class NIOExtensionsTests {
@@ -28,7 +26,7 @@ class NIOExtensionsTests {
         val executor: ExecutorService = Executors.newSingleThreadExecutor()
 
         runBlocking {
-            launch {
+            val j1 = launch {
                 // Start the server
                 val serverChannel = createServerChannel(address, executor)
                 logger.info("Server started, listening on port $port")
@@ -37,13 +35,15 @@ class NIOExtensionsTests {
                 val clientChannel = serverChannel.suspendingAccept()
                 logger.info("Accepted client connection")
 
-                // Read the message from the client
-                //val message = clientChannel.suspendingReadLine()
-                //logger.info("Received message from client: $message")
+                val bufChannel = BufferedSocketChannel(clientChannel)
 
-                // Echo the message back to the client
-                //message?.let { clientChannel.suspendingWriteLine(it) }
-                logger.info("Sent message back to client")
+                // Read the message from the client
+                val message = bufChannel.readLine()
+                logger.info("Received message from client: $message")
+
+                assertEquals("Hello World", message)
+
+                bufChannel.writeLine("Hello World")
 
                 // Close the client channel
                 clientChannel.close()
@@ -51,28 +51,6 @@ class NIOExtensionsTests {
                 // Close the server channel
                 serverChannel.close()
                 logger.info("Server closed")
-            }
-
-            // Start the client
-            launch {
-                delay(100) // Wait for the server to start accepting connections
-
-                // Connect to the server
-                val clientChannel = AsynchronousSocketChannel.open()
-                clientChannel.connect(address).get() // Connect to the server
-                logger.info("Connected to server")
-
-                // Send a message to the server
-                val message = "Hello from client!"
-                //clientChannel.suspendingWriteLine(message)
-                logger.info("Sent message to server")
-
-                // Read the response from the server
-                //val response = clientChannel.suspendingReadLine()
-                //logger.info("Received response from server: $response")
-
-                // Close the client channel
-                clientChannel.close()
             }
         }
     }

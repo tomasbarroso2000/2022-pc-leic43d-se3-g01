@@ -5,10 +5,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
-import pt.isel.pc.chat.utils.BufferedSocketChannel
-import pt.isel.pc.chat.utils.MessageQueue
-import pt.isel.pc.chat.utils.suspendingReadLine
-import pt.isel.pc.chat.utils.suspendingWriteLine
+import pt.isel.pc.chat.utils.*
 import java.io.IOException
 import java.nio.channels.AsynchronousSocketChannel
 import kotlin.time.Duration
@@ -29,7 +26,8 @@ class ConnectedClient(
     private val roomContainer: RoomContainer,
     private val scope: CoroutineScope,
     private val clientContainer: ConnectedClientContainer,
-    private val bufChannel: BufferedSocketChannel
+    private val bufChannel: BufferedSocketChannel,
+    private val semaphore: Semaphore
 ) {
 
     companion object {
@@ -114,6 +112,7 @@ class ConnectedClient(
                 }
             //}
             clientContainer.remove(this@ConnectedClient)
+            semaphore.release()
             readLoop.cancelAndJoin()
             logger.info("[{}] main loop ending", name)
         }

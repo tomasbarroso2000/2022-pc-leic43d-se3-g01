@@ -9,6 +9,7 @@ import pt.isel.pc.chat.domain.ConnectedClientContainer
 import pt.isel.pc.chat.domain.Messages
 import pt.isel.pc.chat.domain.RoomContainer
 import pt.isel.pc.chat.utils.BufferedSocketChannel
+import pt.isel.pc.chat.utils.Semaphore
 import pt.isel.pc.chat.utils.createServerChannel
 import pt.isel.pc.chat.utils.suspendingAccept
 import java.net.InetSocketAddress
@@ -18,7 +19,7 @@ import java.nio.channels.ClosedChannelException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-
+import kotlin.time.Duration
 
 /**
  * Represents a server to which clients can connect, enter and leave rooms, and send messages.
@@ -26,7 +27,7 @@ import java.util.concurrent.Executors
 class Server(
     private val listeningAddress: String,
     private val listeningPort: Int,
-    //private val maxClients : Int,
+    private val maxClients : Int,
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 ) : AutoCloseable {
     companion object {
@@ -55,7 +56,7 @@ class Server(
     private val roomContainer = RoomContainer()
     private val clientContainer = ConnectedClientContainer()
 
-    //private val semaphore = Semaphore(maxClients)
+    private val semaphore = Semaphore(maxClients)
 
     /**
      * The listening thread is mainly comprised by loop waiting for connections and creating a [ConnectedClient]
@@ -94,7 +95,6 @@ class Server(
             }
         } catch (e : TimeoutCancellationException) {
             println(e.message)
-            //logger.info(e.message)
             exit()
         }
         executor.shutdown()
@@ -131,14 +131,14 @@ class Server(
         while (isStarted()) {
             try {
                 logger.info("accepting new client")
-
+                semaphore.acquire(Duration.INFINITE)
                 val socket: AsynchronousSocketChannel = serverSocket.suspendingAccept()
                 logger.info("client socket accepted, remote address is {}", socket.remoteAddress)
                 println(Messages.SERVER_ACCEPTED_CLIENT)
 
                 val bufChannel = BufferedSocketChannel(socket)
 
-                val client = ConnectedClient(socket, ++clientId, roomContainer, scope , clientContainer, bufChannel)
+                val client = ConnectedClient(socket, ++clientId, roomContainer, scope , clientContainer, bufChannel, semaphore)
                 clientContainer.add(client)
             } catch (ex: ClosedChannelException) {
                 logger.info("Server is shutting down")

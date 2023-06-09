@@ -22,7 +22,7 @@ class MessagingTests {
             TestClient()
         }
 
-        Server("0.0.0.0", 8080).use { server ->
+        Server("0.0.0.0", 8080, nOfClients).use { server ->
             // and: a server listening
             server.waitUntilListening()
 
@@ -74,7 +74,7 @@ class MessagingTests {
             TestClient()
         }
 
-        Server("0.0.0.0", 8080).use { server ->
+        Server("0.0.0.0", 8080, nOfClients).use { server ->
             // and: a listening server
             server.waitUntilListening()
 

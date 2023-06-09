@@ -6,8 +6,8 @@ import org.slf4j.LoggerFactory
 import pt.isel.pc.chat.utils.MessageQueue
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
-
 
 class MessageQueueTests {
 
@@ -112,7 +112,7 @@ class MessageQueueTests {
     }
 
     @Test
-    fun testDequeueTimeout() = runBlocking {
+    fun `test dequeue timeout`() = runBlocking {
         val messageQueue = MessageQueue<Int>(3)
 
         val dequeueJob = launch {
@@ -126,20 +126,56 @@ class MessageQueueTests {
     }
 
     @Test
-    fun testEnqueueCancellation() = runBlocking {
+    fun `test dequeue cancellation`() {
         val messageQueue = MessageQueue<Int>(3)
-
-        val enqueueJob = launch {
-            val job = launch {
-                delay(2000) // Introduce a delay to allow enqueue coroutine to suspend
+        runBlocking {
+            val dequeueJob = launch {
                 assertFailsWith<CancellationException> {
-                    messageQueue.enqueue(10)
+                    messageQueue.dequeue(Duration.INFINITE)
                 }
             }
-            delay(1000) // Wait for enqueue to start
-            job.cancel()
+            val cancelJob = launch { dequeueJob.cancel() }
+            dequeueJob.join()
+            cancelJob.join()
         }
+    }
 
-        enqueueJob.join()
+
+    @Test
+    fun `test dequeue empty queue`() {
+        runBlocking {
+            val messageQueue = MessageQueue<Int>(1)
+
+            assertFailsWith<TimeoutCancellationException> {
+                messageQueue.dequeue(1.seconds)
+            }
+        }
+    }
+
+    @Test
+    fun `test enqueue dequeue interleaved`() {
+        runBlocking {
+            val messageQueue = MessageQueue<Int>(3)
+
+            val enqueueJob = launch {
+                repeat(3) {
+                    messageQueue.enqueue(it)
+                    logger.info("after enqueue of $it")
+                    delay(100) // Introduce delay between enqueue operations
+                }
+            }
+
+            val dequeueJob = launch {
+                repeat(3) {
+                    val message = messageQueue.dequeue(1.seconds)
+                    logger.info("after dequeue of $it")
+                    assertEquals(it, message)
+                    delay(100) // Introduce delay between dequeue operations
+                }
+            }
+
+            enqueueJob.join()
+            dequeueJob.join()
+        }
     }
 }

@@ -1,15 +1,13 @@
 package pt.isel.pc.chat
 
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
 import pt.isel.pc.chat.utils.Semaphore
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -18,18 +16,6 @@ class SemaphoreTests {
 
     companion object {
         private val logger = LoggerFactory.getLogger(SemaphoreTests::class.java)
-    }
-
-    @Test
-    fun `create semaphore with invalid initial units`() {
-        assertFailsWith<IllegalArgumentException> {
-            val sem = Semaphore(0)
-
-            runBlocking {
-                sem.acquire(Duration.INFINITE)
-                logger.info("after acquire")
-            }
-        }
     }
 
     @Test
@@ -92,6 +78,62 @@ class SemaphoreTests {
 
             acquirer1.join()
             acquirer2.join()
+        }
+    }
+
+    @Test
+    fun `test release without waiters`() = runBlocking {
+        val semaphore = Semaphore(2)
+
+        semaphore.release()
+        semaphore.release()
+        val result = withTimeoutOrNull(1.seconds) {
+            semaphore.acquire(Duration.INFINITE)
+        }
+        assertNotNull(result)
+    }
+
+    @Test
+    fun `test release with waiters`() = runBlocking {
+        val semaphore = Semaphore(1)
+
+        val acquireJob = launch {
+            semaphore.acquire(Duration.INFINITE)
+        }
+
+        delay(100) // Wait for the acquire operation to start
+
+        semaphore.release()
+
+        acquireJob.join() // Ensure the acquire operation completes successfully
+    }
+
+    @Test
+    fun `test acquire with timeout`(){
+        runBlocking {
+            val semaphore = Semaphore(0)
+
+            assertFailsWith<TimeoutCancellationException> {
+                semaphore.acquire(1.seconds)
+            }
+        }
+    }
+
+    @Test
+    fun `test acquire cancellation`() {
+        runBlocking {
+            val semaphore = Semaphore(0)
+
+            val acquireJob = launch {
+                assertFailsWith<CancellationException> {
+                    semaphore.acquire(Duration.INFINITE)
+                }
+            }
+
+            val cancelJob = launch { acquireJob.cancel() }
+
+            acquireJob.join()
+            cancelJob.join()
         }
     }
 }

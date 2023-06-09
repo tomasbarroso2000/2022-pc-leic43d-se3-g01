@@ -40,7 +40,7 @@ fun main(args: Array<String>) {
         //logger.info("Process id is = ${ProcessHandle.current().pid()}. Starting echo server at port $port")
 
         val localhost = "0.0.0.0"
-        val server = Server(localhost, port)
+        val server = Server(localhost, port, 2)
         server.commandHandler()
     }
 }

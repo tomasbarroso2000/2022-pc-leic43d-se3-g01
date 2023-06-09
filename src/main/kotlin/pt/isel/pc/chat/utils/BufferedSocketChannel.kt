@@ -7,23 +7,23 @@ import java.nio.CharBuffer
 import java.nio.channels.AsynchronousSocketChannel
 
 class BufferedSocketChannel(
-    val channel: AsynchronousSocketChannel,
-    val bufCapacity : Int = BYTEBUF_SIZE,
+    private val channel: AsynchronousSocketChannel,
+    private val bufCapacity : Int = BYTE_BUF_SIZE,
     // fill parameter is just for test purposes
     val fill: (ByteBuffer) -> Int = {-2})  : Closeable {
 
     constructor(channel : AsynchronousSocketChannel,
-                bufCapacity : Int = BYTEBUF_SIZE,
+                bufCapacity : Int = BYTE_BUF_SIZE,
                 maxLine : Int = MAX_LINE,
                 fill: (ByteBuffer) -> Int = {-2}) : this(channel,bufCapacity,fill) {
         this.maxLine = maxLine
     }
 
     companion object {
-        val BYTEBUF_SIZE = 512
-        val CHARBUF_SIZE = BYTEBUF_SIZE*2
-        val MAX_LINE = 256
-        private val NULLCHAR : Char = 0.toChar()
+        const val BYTE_BUF_SIZE = 512
+        const val CHAR_BUF_SIZE = BYTE_BUF_SIZE*2
+        const val MAX_LINE = 256
+        private const val NULL_CHAR : Char = 0.toChar()
         private val EMPTY_STAT = LineStat(0,0)
         private val logger = LoggerFactory.getLogger(BufferedSocketChannel::class.java)
     }
@@ -33,13 +33,13 @@ class BufferedSocketChannel(
     private val outBuffer = ByteBuffer.allocate(bufCapacity)
     private val decoder = Charsets.UTF_8.newDecoder()
     private val encoder = Charsets.UTF_8.newEncoder()
-    private val chars = CharBuffer.allocate(Math.max(CHARBUF_SIZE, bufCapacity*2))
+    private val chars = CharBuffer.allocate(Math.max(CHAR_BUF_SIZE, bufCapacity*2))
 
     private var maxLine = MAX_LINE
 
     // auxiliary state for line retrieving logic
     private var startIndex = 0
-    private var lastEol : Char = NULLCHAR
+    private var lastEol : Char = NULL_CHAR
 
 
     private inline fun isEol(c:Char) =
@@ -113,7 +113,7 @@ class BufferedSocketChannel(
         if (nBytes > 0 && isEolPair(lastEol, Char(inBuffer[0].toInt()))) { // Discard possible Eol Pair
             inBuffer.get()
         }
-        lastEol = NULLCHAR
+        lastEol = NULL_CHAR
         return ( nBytes > 0)
     }
 

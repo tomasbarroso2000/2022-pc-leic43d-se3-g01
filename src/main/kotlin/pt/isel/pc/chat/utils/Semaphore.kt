@@ -10,19 +10,12 @@ import java.util.concurrent.TimeoutException
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 import kotlin.jvm.Throws
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.nanoseconds
 
 class Semaphore(initialUnits: Int) {
-
-    init {
-        require(initialUnits > 0) { "Initial units must be higher than zero" }
-    }
-
     private var units: Int = initialUnits
-    private val mutex = Mutex()
     private val guard = ReentrantLock()
     private val requests = LinkedList<Request>()
 
@@ -67,14 +60,13 @@ class Semaphore(initialUnits: Int) {
     }
 
 
-    private fun handleCancellation(cause: Throwable?, request: Request): Throwable? {
+    private fun handleCancellation(cause: Throwable?, request: Request) {
         guard.withLock {
             if (!request.isDone) {
                 request.isDone = true
                 requests.remove(request)
-                return cause ?: Exception("-- unexpected call to handleCancellation --")
+                throw cause ?: Exception("-- unexpected call to handleCancellation --")
             }
-            return null
         }
     }
 }
