@@ -11,7 +11,7 @@ import pt.isel.pc.chat.utils.*
 import java.io.IOException
 import kotlin.time.Duration
 
-private const val NR_MAX_MESSAGES = 100
+private const val NR_MAX_MESSAGES = 1000
 
 /**
  * Responsible for handling a single connected client. It is comprised by two threads:

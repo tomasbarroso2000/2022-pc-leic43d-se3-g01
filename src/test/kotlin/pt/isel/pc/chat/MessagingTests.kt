@@ -80,10 +80,10 @@ class MessagingTests {
     @Test
     fun `stress test`() {
         // given:
-        val nOfClients = 20
-        val nOfMessages = 1
+        val nOfClients = 40
+        val nOfMessages = 20
         val delayBetweenMessagesInMillis = 0L
-        val testHelper = TestHelper(15000.seconds)
+        val testHelper = TestHelper(30.seconds)
         val counter = ConcurrentHashMap<String, AtomicLong>()
 
         // and: a set of clients
